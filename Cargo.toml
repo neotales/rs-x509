@@ -16,6 +16,7 @@ base64.workspace = true
 ctr.workspace = true
 blowfish.workspace = true
 ed25519-dalek.workspace = true
+ml-dsa = { version = "=0.1.2", default-features = false, features = ["alloc"] }
 p256 = { workspace = true, features = ["arithmetic", "ecdsa", "pkcs8"] }
 p384.workspace = true
 p521.workspace = true

@@ -1,7 +1,8 @@
 //! OpenSSH certificate parsing and verification.
 //!
 //! This module implements the OpenSSH certificate formats for Ed25519, RSA,
-//! and the NIST P-256, P-384, and P-521 ECDSA curves. Certificate subjects
+//! and the NIST P-256, P-384, and P-521 ECDSA curves, plus Go-vendor ML-DSA
+//! certificates for the three draft-08 parameter sets. Certificate subjects
 //! and signature keys are represented as normal public-key blobs; a signature
 //! key must not itself be a certificate. The verification boundary accepts a
 //! raw 32-byte Ed25519 point or an `ssh-ed25519` blob for an Ed25519 CA. Other
@@ -56,6 +57,14 @@ pub const SSH_ECDSA_SHA2_NISTP521: &str = "ecdsa-sha2-nistp521";
 /// The OpenSSH Ed25519 certificate algorithm.
 pub const SSH_ED25519_CERT_V01: &str = "ssh-ed25519-cert-v01@openssh.com";
 
+/// Go x/crypto v0.59.0 vendor certificate name (not defined by draft-08).
+/// See <https://cs.opensource.google/go/x/crypto/+/refs/tags/v0.59.0:ssh/certs.go>.
+pub const SSH_MLDSA44_CERT_V01: &str = "ssh-mldsa-44-cert-v01@golang.org";
+/// Go x/crypto v0.59.0 vendor certificate name (not defined by draft-08).
+pub const SSH_MLDSA65_CERT_V01: &str = "ssh-mldsa-65-cert-v01@golang.org";
+/// Go x/crypto v0.59.0 vendor certificate name (not defined by draft-08).
+pub const SSH_MLDSA87_CERT_V01: &str = "ssh-mldsa-87-cert-v01@golang.org";
+
 /// The OpenSSH RSA certificate algorithm.
 pub const SSH_RSA_CERT_V01: &str = "ssh-rsa-cert-v01@openssh.com";
 
@@ -75,6 +84,9 @@ pub const SUPPORTED_CERTIFICATE_ALGORITHMS: &[&str] = &[
     SSH_ECDSA_SHA2_NISTP256_CERT_V01,
     SSH_ECDSA_SHA2_NISTP384_CERT_V01,
     SSH_ECDSA_SHA2_NISTP521_CERT_V01,
+    SSH_MLDSA44_CERT_V01,
+    SSH_MLDSA65_CERT_V01,
+    SSH_MLDSA87_CERT_V01,
 ];
 
 /// The certificate type value for a user certificate.
@@ -298,6 +310,9 @@ impl fmt::Debug for CertificateOption {
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 enum CertificateAlgorithm {
+    Mldsa44,
+    Mldsa65,
+    Mldsa87,
     Ed25519,
     Rsa,
     EcdsaP256,
@@ -308,6 +323,9 @@ enum CertificateAlgorithm {
 impl CertificateAlgorithm {
     fn from_name(name: &[u8]) -> Option<Self> {
         match name {
+            value if value == SSH_MLDSA44_CERT_V01.as_bytes() => Some(Self::Mldsa44),
+            value if value == SSH_MLDSA65_CERT_V01.as_bytes() => Some(Self::Mldsa65),
+            value if value == SSH_MLDSA87_CERT_V01.as_bytes() => Some(Self::Mldsa87),
             value if value == SSH_ED25519_CERT_V01.as_bytes() => Some(Self::Ed25519),
             value if value == SSH_RSA_CERT_V01.as_bytes() => Some(Self::Rsa),
             value if value == SSH_ECDSA_SHA2_NISTP256_CERT_V01.as_bytes() => Some(Self::EcdsaP256),
@@ -319,6 +337,9 @@ impl CertificateAlgorithm {
 
     const fn name(self) -> &'static str {
         match self {
+            Self::Mldsa44 => SSH_MLDSA44_CERT_V01,
+            Self::Mldsa65 => SSH_MLDSA65_CERT_V01,
+            Self::Mldsa87 => SSH_MLDSA87_CERT_V01,
             Self::Ed25519 => SSH_ED25519_CERT_V01,
             Self::Rsa => SSH_RSA_CERT_V01,
             Self::EcdsaP256 => SSH_ECDSA_SHA2_NISTP256_CERT_V01,
@@ -329,6 +350,9 @@ impl CertificateAlgorithm {
 
     const fn public_key_algorithm(self) -> &'static str {
         match self {
+            Self::Mldsa44 => "ssh-mldsa-44",
+            Self::Mldsa65 => "ssh-mldsa-65",
+            Self::Mldsa87 => "ssh-mldsa-87",
             Self::Ed25519 => SSH_ED25519,
             Self::Rsa => SSH_RSA,
             Self::EcdsaP256 => SSH_ECDSA_SHA2_NISTP256,
@@ -342,7 +366,7 @@ impl CertificateAlgorithm {
             Self::EcdsaP256 => Some("nistp256"),
             Self::EcdsaP384 => Some("nistp384"),
             Self::EcdsaP521 => Some("nistp521"),
-            Self::Ed25519 | Self::Rsa => None,
+            _ => None,
         }
     }
 }
@@ -401,7 +425,7 @@ impl Certificate {
 
     /// Returns the subject's normal SSH public-key blob.
     ///
-    /// The blob uses `ssh-ed25519`, `ssh-rsa`, or the matching plain ECDSA
+    /// The blob uses `ssh-ed25519`, `ssh-rsa`, or the matching plain ECDSA/ML-DSA
     /// algorithm rather than the certificate algorithm.
     #[must_use]
     pub fn subject_public_key_blob(&self) -> &[u8] {
@@ -607,7 +631,7 @@ pub fn parse_certificate(certificate: &[u8]) -> Result<Certificate, CertificateE
 /// Parses and verifies an OpenSSH certificate.
 ///
 /// `ca_public_key` may be either a raw 32-byte Ed25519 point or a complete
-/// `ssh-ed25519` public-key blob for an Ed25519 CA. RSA and ECDSA CAs are
+/// `ssh-ed25519` public-key blob for an Ed25519 CA. RSA, ECDSA and ML-DSA CAs are
 /// supplied as their normal public-key blobs. The certificate's signature
 /// must verify strictly with the embedded signature key, which must identify
 /// the same key as `ca_public_key`. `allowed_critical_options` is an explicit
@@ -672,6 +696,7 @@ struct ParsedCriticalOptions {
 }
 
 enum PublicKeyKind {
+    Mldsa(&'static str, Vec<u8>),
     Ed25519(ed25519_dalek::VerifyingKey),
     Rsa(rsa::RsaPublicKey),
     EcdsaP256(p256::ecdsa::VerifyingKey),
@@ -761,6 +786,23 @@ fn parse_subject_public_key(
     algorithm: CertificateAlgorithm,
 ) -> Result<SubjectPublicKey, CertificateError> {
     match algorithm {
+        CertificateAlgorithm::Mldsa44
+        | CertificateAlgorithm::Mldsa65
+        | CertificateAlgorithm::Mldsa87 => {
+            let raw = reader.read_string()?;
+            let name = algorithm.public_key_algorithm();
+            let (key_len, _) = mldsa_lengths(name).ok_or(CertificateError::UnsupportedAlgorithm)?;
+            if raw.len() != key_len {
+                return Err(CertificateError::InvalidFieldLength);
+            }
+            let mut writer = Writer::new();
+            writer.write_string(name)?;
+            writer.write_string(raw)?;
+            Ok(SubjectPublicKey {
+                blob: writer.into_bytes(),
+                ed25519_point: None,
+            })
+        }
         CertificateAlgorithm::Ed25519 => {
             let point = reader.read_string()?;
             if point.len() != ED25519_PUBLIC_KEY_LENGTH {
@@ -907,6 +949,22 @@ fn decode_plain_public_key_blob(blob: &[u8]) -> Result<DecodedPublicKey, Certifi
     }
 
     let (canonical_blob, kind) = match algorithm {
+        b"ssh-mldsa-44" | b"ssh-mldsa-65" | b"ssh-mldsa-87" => {
+            let name = match algorithm {
+                b"ssh-mldsa-44" => "ssh-mldsa-44",
+                b"ssh-mldsa-65" => "ssh-mldsa-65",
+                _ => "ssh-mldsa-87",
+            };
+            let (key_len, _) = mldsa_lengths(name).ok_or(CertificateError::UnsupportedAlgorithm)?;
+            let raw = reader.read_string()?;
+            if raw.len() != key_len {
+                return Err(CertificateError::InvalidFieldLength);
+            }
+            if !reader.is_empty() {
+                return Err(CertificateError::TrailingData);
+            }
+            (blob.to_vec(), PublicKeyKind::Mldsa(name, raw.to_vec()))
+        }
         value if value == SSH_ED25519.as_bytes() => decode_ed25519_public_key(blob)?,
         value if value == SSH_RSA.as_bytes() => decode_rsa_public_key(blob)?,
         value if value == SSH_ECDSA_SHA2_NISTP256.as_bytes() => {
@@ -954,6 +1012,7 @@ fn verify_public_key_signature(
     signed_bytes: &[u8],
 ) -> Result<(), CertificateError> {
     match &public_key.kind {
+        PublicKeyKind::Mldsa(name, raw) => verify_mldsa(name, raw, signature_blob, signed_bytes),
         PublicKeyKind::Ed25519(key) => verify_ed25519(key, signature_blob, signed_bytes),
         PublicKeyKind::Rsa(key) => verify_rsa(key, signature_blob, signed_bytes),
         PublicKeyKind::EcdsaP256(key) => verify_ecdsa_p256(key, signature_blob, signed_bytes),
@@ -978,7 +1037,62 @@ fn validate_ed25519_signature_blob(blob: &[u8]) -> Result<(), CertificateError> 
     Ok(())
 }
 
+// Public/signature sizes: draft-sfluhrer-ssh-mldsa-08 §§3, 4.
+fn mldsa_lengths(name: &str) -> Option<(usize, usize)> {
+    match name {
+        "ssh-mldsa-44" => Some((1312, 2420)),
+        "ssh-mldsa-65" => Some((1952, 3309)),
+        "ssh-mldsa-87" => Some((2592, 4627)),
+        _ => None,
+    }
+}
+
+// Pure ML-DSA, empty context, over the unwrapped certificate prefix.
+fn verify_mldsa(
+    name: &str,
+    key: &[u8],
+    blob: &[u8],
+    message: &[u8],
+) -> Result<(), CertificateError> {
+    let mut reader = Reader::new(blob);
+    if reader.read_string()? != name.as_bytes() {
+        return Err(CertificateError::UnsupportedAlgorithm);
+    }
+    let signature = reader.read_string()?;
+    let (_, length) = mldsa_lengths(name).ok_or(CertificateError::UnsupportedAlgorithm)?;
+    if signature.len() != length {
+        return Err(CertificateError::InvalidFieldLength);
+    }
+    if !reader.is_empty() {
+        return Err(CertificateError::TrailingData);
+    }
+    match name {
+        "ssh-mldsa-44" => verify_mldsa_raw::<ml_dsa::MlDsa44>(key, signature, message),
+        "ssh-mldsa-65" => verify_mldsa_raw::<ml_dsa::MlDsa65>(key, signature, message),
+        "ssh-mldsa-87" => verify_mldsa_raw::<ml_dsa::MlDsa87>(key, signature, message),
+        _ => Err(CertificateError::UnsupportedAlgorithm),
+    }
+}
+
+fn verify_mldsa_raw<P: ml_dsa::MlDsaParams>(
+    key: &[u8],
+    signature: &[u8],
+    message: &[u8],
+) -> Result<(), CertificateError> {
+    use ml_dsa::Verifier;
+    let encoded = ml_dsa::EncodedVerifyingKey::<P>::try_from(key)
+        .map_err(|_| CertificateError::InvalidPublicKey)?;
+    let key = ml_dsa::VerifyingKey::<P>::decode(&encoded);
+    let signature = ml_dsa::Signature::<P>::try_from(signature)
+        .map_err(|_| CertificateError::InvalidSignature)?;
+    key.verify(message, &signature)
+        .map_err(|_| CertificateError::InvalidSignature)
+}
+
 fn is_certificate_algorithm(algorithm: &[u8]) -> bool {
+    if CertificateAlgorithm::from_name(algorithm).is_some() {
+        return true;
+    }
     algorithm.ends_with(b"-cert-v01@openssh.com")
         || algorithm.ends_with(b"-cert")
         || algorithm.ends_with(b"-cert-v01")
@@ -1071,7 +1185,7 @@ fn validate_ecdsa_point(
         CertificateAlgorithm::EcdsaP256 => P256_POINT_LENGTH,
         CertificateAlgorithm::EcdsaP384 => P384_POINT_LENGTH,
         CertificateAlgorithm::EcdsaP521 => P521_POINT_LENGTH,
-        CertificateAlgorithm::Ed25519 | CertificateAlgorithm::Rsa => {
+        _ => {
             return Err(CertificateError::UnsupportedAlgorithm);
         }
     };
@@ -1091,7 +1205,7 @@ fn validate_ecdsa_point(
         CertificateAlgorithm::EcdsaP521 => {
             p521::ecdsa::VerifyingKey::from_sec1_bytes(point).is_ok()
         }
-        CertificateAlgorithm::Ed25519 | CertificateAlgorithm::Rsa => false,
+        _ => false,
     };
     if valid {
         Ok(())
@@ -1139,7 +1253,7 @@ fn decode_ecdsa_public_key(
             p521::ecdsa::VerifyingKey::from_sec1_bytes(&point)
                 .map_err(|_| CertificateError::InvalidPublicKey)?,
         ),
-        CertificateAlgorithm::Ed25519 | CertificateAlgorithm::Rsa => {
+        _ => {
             return Err(CertificateError::UnsupportedAlgorithm);
         }
     };
