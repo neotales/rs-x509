@@ -1183,7 +1183,7 @@ fn verify_rsa(
         RSA_SHA2_256 => {
             let digest = sha2::Sha256::digest(signed_bytes);
             key.verify(
-                rsa::Pkcs1v15Sign::new_unprefixed(),
+                rsa::Pkcs1v15Sign::new::<rsa::sha2::Sha256>(),
                 digest.as_slice(),
                 signature,
             )
@@ -1191,7 +1191,7 @@ fn verify_rsa(
         RSA_SHA2_512 => {
             let digest = sha2::Sha512::digest(signed_bytes);
             key.verify(
-                rsa::Pkcs1v15Sign::new_unprefixed(),
+                rsa::Pkcs1v15Sign::new::<rsa::sha2::Sha512>(),
                 digest.as_slice(),
                 signature,
             )

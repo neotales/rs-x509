@@ -20,7 +20,7 @@ p256 = { workspace = true, features = ["arithmetic", "ecdsa", "pkcs8"] }
 p384.workspace = true
 p521.workspace = true
 rcgen.workspace = true
-rsa.workspace = true
+rsa = { workspace = true, features = ["sha2"] }
 sha2 = "0.11"
 subtle.workspace = true
 time.workspace = true
