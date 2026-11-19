@@ -45,4 +45,4 @@ that gap is worth more here than it would be elsewhere.
 
 ## Licence
 
-MIT. See [LICENSE](../../LICENSE.md).
+MIT. See [LICENSE](LICENSE.md).
