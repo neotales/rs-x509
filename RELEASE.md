@@ -16,7 +16,7 @@ Bump the version, commit, push, then tag that commit:
 ```sh
 cargo publish --dry-run
 git tag v0.3.1
-git push origin main
+git push origin dev
 git push origin v0.3.1
 ```
 
