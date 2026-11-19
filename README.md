@@ -51,19 +51,32 @@ This is the call shape for converting an OpenSSH private key and matching public
 ```rust
 use neotales_x509::{SshKeyToX509, ssh_keypair_to_x509};
 
-let key_pair = ssh_keypair_to_x509(
-    private_key.as_bytes(),
-    public_key.as_bytes(),
-    &SshKeyToX509 {
-        common_name: "host.example".to_owned(),
-        not_before_unix: 1_700_000_000,
-        not_after_unix: 1_731_536_000,
-    },
-    None,
-)?;
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let private_key: &str = "contents of an OpenSSH private key";
+    let public_key: &str = "ssh-ed25519 ...";
+
+    let key_pair = ssh_keypair_to_x509(
+        private_key,
+        public_key,
+        &SshKeyToX509 {
+            common_name: "host.example".to_owned(),
+            not_before_unix: 1_700_000_000,
+            not_after_unix: 1_731_536_000,
+        },
+        None,
+    )?;
+
+    let certificate_pem: String = key_pair.certificate_pem;
+    let private_key_pem = key_pair.private_key_pem;
+    let public_key_pem: String = key_pair.public_key_pem;
+    println!("{certificate_pem}");
+    println!("{private_key_pem}");
+    println!("{public_key_pem}");
+    Ok(())
+}
 ```
 
-The returned `X509KeyPair` contains the certificate and PEM-encoded keys. The OpenSSH certificate conversion does not supply a private key.
+The fields shown are `certificate_pem: String`, `private_key_pem: Zeroizing<String>`, and `public_key_pem: String`. This is a call-shape example, not a runnable key fixture. No OpenSSH private key exists in `tests/fixtures`, so the sample has not been executed.
 
 ## Test 🧪
 
