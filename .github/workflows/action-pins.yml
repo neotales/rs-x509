@@ -7,7 +7,8 @@ name: action-pins
 
 on:
   push:
-    branches: [dev]
+    branches:
+      - "**"
     paths:
       - ".github/workflows/**"
       - ".github/actions/**"
