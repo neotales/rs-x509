@@ -1,3 +1,5 @@
+//! Print the RFC 6187 authorized-key line for a DER X.509 certificate.
+
 use neotales_x509::ssh;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
