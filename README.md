@@ -4,11 +4,9 @@ Turn an OpenSSH key pair into a self-signed X.509 certificate, or carry an X.509
 
 ![Neotales](https://github.com/neotales/brand/raw/main/assets/logo.png)
 
-![A key becomes a stamped certificate](docs/media/stamp.gif)
+![One does not simply parse X.509](https://media.giphy.com/media/smW5FBep69d3q/giphy.gif)
 
-![A key becomes an X.509 certificate](docs/media/meme.png)
-
-**OpenSSH key in, X.509 certificate out. The format conversion is the easy part.**
+**One does not simply parse X.509.** The identifiers, the wire format, and the places where a certificate is not quite DER are the hard part. This crate does that work. You still choose who to trust.
 
 ## Install 📦
 

@@ -46,9 +46,10 @@ its publish trigger. Every later version publishes from its tag.
 If the crate name is taken on crates.io by someone else, stop. A rename is a
 different repository setup, not a flag.
 
-`cargo package` includes every tracked file, so the template's `.github/`,
-`RELEASE.md` and `README-STYLE.md` ship inside the published crate unless the
-manifest excludes them. That is harmless. Exclude them if package size matters.
+`cargo package` includes every tracked file, so `.github/` and `RELEASE.md`
+ship inside the published crate unless the manifest excludes them. That is
+harmless. Exclude them if package size matters. The README style guide lives
+at `~/work/rs/README.STYLE.md` and is not part of this crate.
 
 ## Later releases
 
