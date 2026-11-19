@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (c) 2026 Neotales
+Copyright (c) 2026 [Neotales](https://github.com/neotales) and [x0craft](https://github.com/x0craft)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
