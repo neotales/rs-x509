@@ -1,0 +1,6 @@
+/target
+
+# Cargo.lock is committed on purpose. These are libraries, and a lockfile in
+# the repository is what makes the scheduled `cargo audit` and `cargo deny`
+# runs describe the same graph a release builds from.
+**/*.rs.bk
