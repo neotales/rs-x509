@@ -587,7 +587,7 @@ dependencies = [
 
 [[package]]
 name = "neotales-x509"
-version = "0.0.0-alpha.0"
+version = "0.0.0-alpha.1"
 dependencies = [
  "aes",
  "base64 0.22.1",
