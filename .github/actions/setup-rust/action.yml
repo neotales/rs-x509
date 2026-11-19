@@ -16,7 +16,7 @@ runs:
     - name: Install the toolchain
       uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
       with:
-        toolchain: 1.98.1
+        toolchain: 1.100.0
         components: clippy, rustfmt, rust-src
 
     - name: Check the toolchain against rust-toolchain.toml
@@ -39,6 +39,6 @@ runs:
       uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       with:
         workspaces: ${{ inputs.root }} -> target
-        prefix-key: rust-1.98.1
+        prefix-key: rust-1.100.0
         cache-bin: false
         key: ${{ inputs.cache-key }}

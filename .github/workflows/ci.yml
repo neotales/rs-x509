@@ -58,7 +58,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # Installs 1.98.1, the channel in rust-toolchain.toml and the minimum
+      # Installs 1.100.0, the channel in rust-toolchain.toml and the minimum
       # supported version declared in Cargo.toml. Do not float to stable here:
       # a job named msrv that tests stable proves nothing.
       - uses: ./.github/actions/setup-rust
@@ -71,8 +71,8 @@ jobs:
           declared=$(cargo metadata --no-deps --format-version 1 \
             | python3 -c 'import json, sys; print(json.load(sys.stdin)["packages"][0]["rust_version"] or "")')
           echo "rust-version: ${declared:-<unset>}"
-          if [ "$declared" != "1.98" ]; then
-            echo "::error::Cargo.toml must declare rust-version = \"1.98\", found ${declared:-<unset>}."
+          if [ "$declared" != "1.100" ]; then
+            echo "::error::Cargo.toml must declare rust-version = \"1.100\", found ${declared:-<unset>}."
             exit 1
           fi
 
