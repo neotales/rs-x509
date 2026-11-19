@@ -1,48 +1,55 @@
-# `neotales-x509`
+# neotales-x509
 
-X.509 certificate identifiers, parsing and generation, and the SSH wire
-conversions for certificates and keys.
+Convert X.509 certificates and OpenSSH keys between DER, PEM, and SSH formats.
 
-X.509 is a large and much-misunderstood format, and most of the difficulty is not
-cryptographic: it is the identifier encoding, the wire format, and the several
-places where a certificate is not quite DER. This crate is the certificate
-surface built on `neotales-crypto`, which is where the algorithms live.
+![Neotales](https://github.com/neotales/brand/raw/main/assets/logo.png)
 
-## What it covers
+Need to move a certificate into an SSH public-key field, or turn an OpenSSH key pair into an X.509 identity? This crate handles the encoding work.
 
-- **Certificate identifiers and names**, including the parsing that distinguishes
-  a distinguished name from a string that merely looks like one.
-- **Certificate parsing and generation**, with a bounded parser.
-- **Public and private key encoding** for Ed25519, ECDSA on P-256, and RSA, in
-  PKCS#8 and the OpenSSH encodings.
-- **SSH wire conversions**, so a certificate or key can be carried in the format
-  an SSH client expects rather than in DER.
-- **The object identifiers** the format needs, exported as named constants and
-  as an `oids` module, so a caller is not embedding `1.3.101.112` as a literal.
+![A key becomes a stamped certificate](docs/media/stamp.gif)
 
-## What it does not do
+**Certificate stamp, applied.** You choose the trust policy; this crate parses and generates the certificate data.
 
-- **No validation against a trust store.** It parses and generates; deciding
-  whether to trust a certificate is a policy decision that belongs to the caller
-  and to whatever policy library they already use.
-- **No revocation.** Same reason. A CRL or an OCSP response is fetched by
-  something that knows the network.
-- **No I/O beyond reading a file the caller names.** Parsing takes bytes.
-- **No algorithm implementation.** The algorithms are in `neotales-crypto`.
+## Install
 
-## What is verified, and what is not
+```sh
+cargo add neotales-x509
+```
 
-Encoding and decoding of the supported key and certificate forms, including the
-OpenSSH wire conversions, is covered by the crate's own tests on Linux, Windows
-and macOS, with round trips and bounded parsing.
+## What you can do
 
-**Two things the area README names as gates are not running.** No test in this
-repository invokes `ssh-keygen` or `ssh`, so the OpenSSH encodings have not been
-demonstrated to interoperate with the tool that defines them, and no fuzzing runs
-anywhere in this repository. The support matrix records the interoperation lane
-as an exclusion. Because this crate exists to interoperate with other software,
-that gap is worth more here than it would be elsewhere.
+- **Convert DER certificates to RFC 6187 SSH blobs or authorized-key lines.** Use `ssh::to_ssh_wire` and `ssh::to_authorized_key`. Reverse the conversion with `ssh::from_ssh_wire` and `ssh::from_authorized_key`.
+- **Build an X.509 key pair from an OpenSSH key pair.** `ssh_keypair_to_x509` returns a self-signed certificate, PKCS#8 private-key PEM, and SPKI public-key PEM. It accepts Ed25519, P-256 ECDSA, and RSA. OpenSSH private keys may use bcrypt and AES-256-CTR encryption.
+- **Convert OpenSSH certificates and X.509 identities.** Use `openssh_cert::x509_to_openssh_certificate`, `openssh_cert::parse`, `openssh_cert::to_wire`, and `openssh_cert::openssh_certificate_to_x509_identity`.
+- **Parse and verify SSH certificates.** `ssh_cert::parse_certificate` parses the certificate, and `ssh_cert::verify_certificate` checks its signature.
+- **Encode and decode PEM.** `pem::encode` and `pem::decode` handle one DER block.
+- **Use named object identifiers.** The crate exports `ED25519_OID` and the `oids` module.
+
+The SSH certificate conversions support RSA, P-256 ECDSA, and Ed25519. An OpenSSH certificate contains no private key.
+
+## Convert a DER certificate
+
+This runnable example takes DER bytes and prints the corresponding authorized-key line:
+
+```rust
+use neotales_x509::ssh;
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let certificate_der = std::fs::read("certificate.der")?;
+    let authorized_key = ssh::to_authorized_key(&certificate_der)?;
+    println!("{authorized_key}");
+    Ok(())
+}
+```
+
+Run it with `cargo run --example der_to_authorized_key -- certificate.der` after saving the code as `examples/der_to_authorized_key.rs`.
+
+## Test
+
+```sh
+cargo test
+```
 
 ## Licence
 
-MIT. See [LICENSE](LICENSE.md).
+MIT. See [LICENSE.md](LICENSE.md).
