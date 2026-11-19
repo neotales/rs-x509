@@ -35,8 +35,10 @@ The first publish is manual, with an API token:
    `cargo publish` with the token supplied through the environment. Do not
    publish from a working tree with uncommitted changes.
 3. Add the trusted publisher on crates.io, in the crate's settings:
-   owner `neotales`, repository name, workflow filename `release.yml`,
-   environment `release`.
+   owner `neotales`, repository name, workflow filename `release.yml`.
+   Leave the environment empty. The publish job does not set one. If you set
+   an environment here, the job must set the same name, or crates.io rejects
+   the token.
 4. Revoke the API token once an OIDC release has succeeded.
 
 The release run for that first version fails, because the version it would
@@ -83,6 +85,6 @@ a leaked token cannot publish this crate later.
 | Symptom | Cause |
 | --- | --- |
 | `version` job: tag does not match `vX.Y.Z` | `Cargo.toml` version and the tag disagree. Delete the tag, fix, re-tag. |
-| Publish job: OIDC exchange fails | Crate does not exist yet, or no trusted publisher for this repository, workflow file and environment. |
+| Publish job: OIDC exchange fails | Crate does not exist yet, or the trusted publisher does not match this repository, `release.yml`, and an empty environment. |
 | Publish job: version already uploaded | The version was published before, usually by the manual first release. Bump the version. |
 | Publish job: `cargo publish` rejects the token | Trusted Publishing Only mode is on and the crate has no trusted publisher configured. |

@@ -97,8 +97,8 @@ jobs:
     needs: [check, version]
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    environment:
-      name: release
+    # No GitHub environment. The trusted publisher on crates.io has an empty
+    # environment, and those two values must match or the token exchange fails.
     permissions:
       id-token: write
       contents: read
