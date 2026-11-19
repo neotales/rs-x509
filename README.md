@@ -2,6 +2,8 @@
 
 Turn an OpenSSH key pair into a self-signed X.509 certificate, or carry an X.509 certificate as an RFC 6187 authorized-key line. Convert OpenSSH certificate wire data, encode and decode PEM, and use named OIDs instead of scattering identifier strings through your code. You choose who to trust; this crate handles the bytes.
 
+By [x0craft](https://github.com/x0craft).
+
 ![Neotales](https://github.com/neotales/brand/raw/main/assets/logo.png)
 
 ![One does not simply parse X.509](https://media.giphy.com/media/smW5FBep69d3q/giphy.gif)
