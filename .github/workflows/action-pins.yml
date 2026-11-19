@@ -1,0 +1,93 @@
+name: action-pins
+
+# A floating `uses:` is a dependency that updates itself. Every third-party
+# action is pinned to a 40-character commit SHA, with the tag in a trailing
+# comment so a reader can tell what the SHA is. Local actions (`./...`) are
+# part of this repository and need no pin.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/**"
+      - ".github/actions/**"
+  pull_request:
+    paths:
+      - ".github/workflows/**"
+      - ".github/actions/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pins:
+    name: uses pins are commit SHAs
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Check every uses pin
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          SHA = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*@[0-9a-f]{40}$")
+          USE = re.compile(r"^\s*(?:-\s+)?uses:\s*(.+?)\s*$")
+
+          root = pathlib.Path(".github")
+          files = sorted(
+              p for p in root.rglob("*")
+              if p.is_file() and p.suffix in (".yml", ".yaml")
+          )
+          if not files:
+              print("::error::no workflow or action files found under .github")
+              sys.exit(1)
+
+          errors = []
+          pins = 0
+          for path in files:
+              for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                  match = USE.match(line)
+                  if not match:
+                      continue
+                  raw = match.group(1)
+                  value, _, comment = raw.partition("#")
+                  value = value.strip().strip("'\"")
+                  comment = comment.strip()
+
+                  if value.startswith("./"):
+                      continue
+                  if value.startswith("docker://"):
+                      if "@sha256:" not in value:
+                          errors.append(
+                              f"{path}:{number}: {value} is an image reference without an @sha256 digest"
+                          )
+                      continue
+                  if value.startswith("."):
+                      errors.append(
+                          f"{path}:{number}: {value} is a local path but does not start with ./"
+                      )
+                      continue
+
+                  pins += 1
+                  if not SHA.match(value):
+                      errors.append(
+                          f"{path}:{number}: {value} is not pinned to a 40-character commit SHA"
+                      )
+                      continue
+                  if not comment:
+                      errors.append(
+                          f"{path}:{number}: {value} has no trailing version comment"
+                      )
+
+          for error in errors:
+              print(f"::error::{error}")
+          print(f"checked {len(files)} files, {pins} third-party pins, {len(errors)} problems")
+          sys.exit(1 if errors else 0)
+          PY

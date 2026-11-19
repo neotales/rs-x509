@@ -1,0 +1,123 @@
+name: release
+
+# Publishing is driven by a tag, never by a branch. The tag must equal `v` plus
+# the version in Cargo.toml, so the thing that ran is a thing that can be named.
+#
+# Trusted publishing: the publish job asks crates.io for a short-lived token
+# over OIDC. There is no CARGO_REGISTRY_TOKEN secret in this repository.
+# crates.io cannot bootstrap a crate this way. The first publish of a new crate
+# is manual. See RELEASE.md.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+
+jobs:
+  # Runs on both triggers. On workflow_dispatch this job is the whole release:
+  # checks and `cargo publish --dry-run`, never a real publish.
+  check:
+    name: pre-publish checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/setup-rust
+        with:
+          cache-key: release
+
+      - name: Format
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Test
+        run: cargo test --all-targets --all-features
+
+      - name: Package without publishing
+        run: cargo publish --dry-run
+
+  version:
+    name: tag matches the crate version
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Compare the tag with Cargo.toml
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          import sys
+          import tomllib
+
+          with open("Cargo.toml", "rb") as handle:
+              manifest = tomllib.load(handle)
+
+          package = manifest.get("package")
+          if not isinstance(package, dict):
+              sys.exit("Cargo.toml has no [package] table")
+
+          version = package.get("version")
+          if not isinstance(version, str):
+              sys.exit(
+                  "Cargo.toml [package] version is not a literal string. "
+                  "This template expects a single crate, not an inherited workspace version."
+              )
+
+          tag = os.environ["TAG"]
+          expected = f"v{version}"
+          print(f"tag: {tag}")
+          print(f"Cargo.toml version: {version}")
+          if tag != expected:
+              print(f"::error::tag {tag} does not match {expected} from Cargo.toml")
+              sys.exit(1)
+          PY
+
+  publish:
+    name: publish to crates.io
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [check, version]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: release
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/setup-rust
+        with:
+          cache-key: release-publish
+
+      # Fails when the crate does not exist on crates.io yet, or when no
+      # trusted publisher is configured for this repository, workflow file and
+      # environment. That is the intended failure: there is nothing to fall back
+      # to, and no token to widen. See RELEASE.md for the first publish.
+      - name: Exchange the OIDC token for a crates.io token
+        id: auth
+        uses: rust-lang/crates-io-auth-action@3268eb413133e2960fa4ae0e963ca76380c54cd9 # v1.0.6
+
+      - name: Publish
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+        run: cargo publish

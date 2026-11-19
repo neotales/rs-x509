@@ -1,0 +1,47 @@
+# Supply chain policy for one crate.
+#
+# This is the rs-repo-template policy with one advisory ignore added for this
+# crate. The plab workspace also ignores RUSTSEC-2024-0449 for unsafe-libyaml;
+# that arrives through neotales-docker-compose's serde_yaml, not through this
+# crate, so it is not copied here.
+#
+# An ignore needs a reason and a delete condition. Never add one to make a red
+# build green.
+
+[graph]
+targets = [
+  "x86_64-unknown-linux-gnu",
+  "x86_64-pc-windows-msvc",
+  "x86_64-apple-darwin",
+  "aarch64-apple-darwin",
+]
+all-features = true
+
+[advisories]
+version = 2
+yanked = "deny"
+unmaintained = "transitive"
+ignore = [
+  { id = "RUSTSEC-2023-0071", reason = """\
+    neotales-x509 uses rsa for key parsing and signatures, not for that decrypt \
+    path. This is not a mitigation. Delete this entry when rsa leaves the graph \
+    or the crate moves to a patched line.""" },
+]
+
+[licenses]
+allow = [
+  "MIT",
+  "Apache-2.0",
+  "BSD-3-Clause",
+  "ISC",
+  "Unicode-3.0",
+  "Zlib",
+]
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"

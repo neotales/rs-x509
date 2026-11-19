@@ -1,0 +1,73 @@
+name: audit
+
+# Runs every day so a new advisory lands as a red build on a repository nobody
+# touched, not as a surprise during a release.
+
+on:
+  schedule:
+    - cron: "17 7 * * *"
+  push:
+    branches: [main]
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "deny.toml"
+      - ".github/workflows/audit.yml"
+  pull_request:
+    paths:
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "deny.toml"
+      - ".github/workflows/audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: audit-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+
+jobs:
+  deny:
+    name: cargo deny
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/setup-rust
+        with:
+          cache-key: audit-deny
+
+      - name: Install cargo-deny 0.20.2
+        run: cargo install cargo-deny --version 0.20.2 --locked
+
+      - name: Check advisories, licences, bans, and sources
+        run: cargo deny check
+
+  audit:
+    name: cargo audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/setup-rust
+        with:
+          cache-key: audit-cargo-audit
+
+      # 0.21.2 exits before scanning: its bundled rustsec 0.30.2 cannot parse
+      # the CVSS 4.0 field that recent advisories carry, so the whole audit is
+      # dead rather than red. 0.22.2 loads the database.
+      - name: Install cargo-audit 0.22.2
+        run: cargo install cargo-audit --version 0.22.2 --locked
+
+      # cargo audit reads no config file, so this ignore is repeated from
+      # deny.toml, where the reason and delete condition live.
+      - name: Check the lockfile against the advisory database
+        run: cargo audit --ignore RUSTSEC-2023-0071
