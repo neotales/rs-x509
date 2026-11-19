@@ -1,7 +1,7 @@
 [package]
 name = "neotales-x509"
 description = "X.509 certificate identifiers, parsing and generation, and the SSH wire conversions for certificates and keys"
-version = "0.0.0-alpha.1"
+version = "0.0.0-alpha.0"
 edition = "2024"
 rust-version = "1.98"
 license = "MIT"
