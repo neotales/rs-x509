@@ -6,9 +6,7 @@ By [x0craft](https://github.com/x0craft).
 
 ![Neotales](https://github.com/neotales/brand/raw/main/assets/logo.png)
 
-![One does not simply parse X.509](https://media.giphy.com/media/smW5FBep69d3q/giphy.gif)
-
-**One does not simply parse X.509.** The identifiers, the wire format, and the places where a certificate is not quite DER are the hard part. This crate does that work. You still choose who to trust.
+**Parse X.509, keep the trust decision.** The identifiers, the wire format, and the places where a certificate is not quite DER are the hard part. This crate does that work. You still choose who to trust.
 
 ## Install 📦
 
